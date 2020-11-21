@@ -63,3 +63,4 @@ ggplot() +
   geom_vline(xintercept=0,linetype=3,size=1)+
   guides(shape=guide_legend(title="Communities",color="black"),
          fill=guide_legend(title="Communities"))
+
