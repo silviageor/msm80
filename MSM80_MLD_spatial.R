@@ -17,19 +17,21 @@ ggplot() +
   # force mapping coordinates
   coord_map() +
   # plot stations with color proportional to MLD
-  geom_point(aes(x=lon, y=lat, colour=MLDepth), data=all_data, size=5,na.rm = TRUE) +
+  geom_point(aes(x=lon, y=lat, colour=MLDepth), data=all_data, size=4,na.rm = TRUE) +
   # add the coast
   geom_polygon(aes(x=lon, y=lat), data=coastline) +
   # fix axis labels
   scale_x_continuous(breaks = c(-74,-76,-78,-80,-82),labels = c("74°W", "76°W", "78°W","80°W", "82°W"))+
   scale_y_continuous(breaks= c(-10, -12.5,-15,-17.5), labels = c("10°S","12.5°S","15°S","17.5°S"))+
-  scale_colour_viridis_c(name = "MLD [m]")
+  scale_colour_viridis_c(name = "MLD [m]")+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
 
 # simple numerical interpolation
 library("akima")
 library("akima")
 # perform the interpolation with grid size 45 x 30 [depending on desired resolution nx and ny might be changes]
-interp_MLD <- interp(x=all_data$lon, y=all_data$lat, z=all_data$MLDepth, linear=TRUE, nx=60, ny=45, duplicate = "strip",
+interp_MLD <- interp(x=all_data$lon, y=all_data$lat, z=all_data$MLDepth, linear=TRUE, nx=100, ny=100, duplicate = "strip",
                       extrap = FALSE) %>%  interp2xyz() %>% as.data.frame() 
 names(interp_MLD) <- (c("lon", "lat", "mldepth"))
 
@@ -38,4 +40,8 @@ ggplot() +
   geom_tile(aes(x=lon, y=lat, fill=mldepth), data=interp_MLD) +
   geom_polygon(aes(x=lon, y=lat), data=coastline) +
   # add a (continuous) viridis scale
-  scale_fill_viridis_c(na.value=NA)
+  scale_fill_viridis_c(name = "MLD [m]",na.value=NA)+
+  scale_x_continuous(breaks = c(-74,-76,-78,-80,-82),labels = c("74°W", "76°W", "78°W","80°W", "82°W"))+
+  scale_y_continuous(breaks= c(-10, -12.5,-15,-17.5), labels = c("10°S","12.5°S","15°S","17.5°S"))+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
