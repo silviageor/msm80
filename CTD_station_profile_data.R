@@ -4,79 +4,68 @@
 ### CTD Stations data from validated CTD profiles provided by Physical Oceanography
 
 
+##1. create a list of all cnv-CTD files that you require according to the station list (Named the folder profiles)####
+#Read  CTD original files as cnv files from the folder directory
+#60 files - All CTD profiles from each station. In 24 hour stations, only 1 profile file has been selected
+
 library(oce) ###for reading and processing CTD data (Kelley and Richards 2018)
 library(ocedata) # Also has the loop  function
+
+##Read all CTD Files from the folder. Stations with more than 1 file , only one profile was taken
+allfiles = dir("~/Documents/Profiles", full.names = TRUE, pattern = ".cnv")
+
+##Because the Station ID were sometimes not indicated in the CTD file. I added them manually
 library(readxl)
-##1. create a list of all cnv-CTD files####
-#Read  CTD original files as cnv files from the folder directory
-##There were 137 CTD profiles in total from 106 stations
-#59 stations - All transect stations where a ctd was taken except yoyo stations and 24 hour stations,
-#and stations outside the transects
-##Stations outside the transect are excluded from the list
+MSM80_stations <- read_excel("~/Documents//MSM80.xlsx", 
+                         sheet = "Stations")
+View(MSM80_stations)
 
-allfiles = dir("CTD_Files", full.names = TRUE, pattern = ".cnv")
-
-##Adding station number manually
-
-
-
-##2. Loop through  the files
-##To include all ctd profiles, change the number 59 to indicate all the profiles
+##Loop through  the files
 #profile measurement aligned to a standard pressure of 20 centimeters.
-ctd = list()
+all.ctd = list()
 
 for (i in 1:length(allfiles)){
   
-  ctd[[i]] = read.ctd(allfiles[i])%>%
-    ctdTrim(method = "downcast")%>% 
-    ctdDecimate(p = 0.2)
-
+  all.ctd[[i]] = read.ctd(allfiles[i])%>%
+    ctdDecimate(p = 0.2) # Align to same standard pressure
+  
+  all.ctd[[i]][["station"]] = MSM80_stations$Station[i] ##Add station IDs
+  
 }
-section = ctd%>%as.section()
 
-ctd.tb = ctd.tb%>%
-  select(cruise, station, date, lon,lat, 
-         pressure, depth, temperature)
-
-ctd.tb = as_tibble(ctd.tb, .name_repair = "minimal")%>%
-  select(cruise, station, date, lon,lat, 
-         pressure, depth, temperature)
-par(mfrow = c(1,2))
-section%>%plot(which = "map", showStations = TRUE, showStart = TRUE)
-section = ctd.tb%>%as.section()
-summary(ctd.tb)
-structure(ctd)
-
-#####3. make a data frame of CTD data from CTD list####
+#####2. make a data frame of CTD data from CTD list####
+#https://semba-blog.netlify.app/02/12/2019/isosurface-of-temperature-salinity-oxygen-and-fluorescence-in-mafia-channel-from-ctd-data/
 #The ctd is the list file with 59 CTD casts from 59 stations. 
-#We need to convert the profile value of each cast to a data frame and then combine them to form a large data frame with all the cast embeded. 
+#We need to convert the profile value of each cast to data frame and then combine them to form a large data frame with all the cast embeded. 
 #That is tedious to do it manually. However, we can tell R to do it for us using a for() loop function
 
 require(tidyverse) #chaining the process and tidying of data 
 require(lubridate) #for manipulating date (Grolemund and Wickham 2011)
+require(sf) #sf for mapping (Pebesma 2018)
+library(dplyr)
 
 ##Making a tibble
 ctd.tb = list()
 
-
-for (i in 1:length(ctd)){
+for (j in 1:length(all.ctd)){
   
-  ctd.tb[[i]] = ctd[[i]]@data %>% 
+  ctd.tb[[j]] = all.ctd[[j]]@data %>% 
     as_tibble() %>% 
-    mutate(lon =ctd[[i]]@metadata$longitude,
-           lat =ctd[[i]]@metadata$latitude,
-           filename = ctd[[i]]@metadata$filename,
-           hexfilename = ctd[[i]]@metadata$hexfilename
-           #time = ctd[[i]]@metadata$timeS %>% dmy(),
-           )%>% 
-    select(lon,lat,filename,hexfilename, pressure, depth, 
-           temperature, salinity, oxygen, par)
+    mutate(lon =all.ctd[[j]]@metadata$longitude,
+           lat =all.ctd[[j]]@metadata$latitude,
+           station=all.ctd[[j]]@data$station,
+           #time = all.ctd[[i]]@data$time%>% dmy(),
+           profile = j)%>% 
+    select(station,lon,lat, profile, pressure, depth,conductivity, 
+           temperature, salinity=salinity2, oxygen=oxygen2, par, fluorescence, turbidity)
   
 }
+
 ##Concert tibble to  data frame
-##You can use the .df file to plot data from stations/transects
 ctd.df = ctd.tb %>% bind_rows()
 
+library(writexl)
+write_xlsx(ctd.df,"~/Documents/CTD Profiles.xlsx")
 # load the logsheet
 
 logsheet <- read_excel("GeneralLogSheet_MSM80_Geomar_25012019.xlsx", skip = 2)
