@@ -34,8 +34,7 @@ for (i in 1:length(allfiles)){
 }
 
 #####2. make a data frame of CTD data from CTD list####
-#https://semba-blog.netlify.app/02/12/2019/isosurface-of-temperature-salinity-oxygen-and-fluorescence-in-mafia-channel-from-ctd-data/
-#The ctd is the list file with 59 CTD casts from 59 stations. 
+#The ctd is the list file with 60 CTD casts from 60 stations. 
 #We need to convert the profile value of each cast to data frame and then combine them to form a large data frame with all the cast embeded. 
 #That is tedious to do it manually. However, we can tell R to do it for us using a for() loop function
 
@@ -61,7 +60,7 @@ for (j in 1:length(all.ctd)){
   
 }
 
-##Concert tibble to  data frame
+##Convert tibble to  data frame
 ctd.df = ctd.tb %>% bind_rows()
 
 library(writexl)
