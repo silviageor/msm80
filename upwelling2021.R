@@ -6,7 +6,7 @@ library("tidyverse")
 library("reshape2")
 library("janitor")
 library("dplyr")
-
+library("data.table")
 ## load files and select only the lon where transects were sampled
 #T1
 
@@ -36,12 +36,15 @@ T4up <- read_delim("Upwelling/UE_MSM_T4.csv", ",")
 T4up <- T4up %>% filter(lon %in% c("-77.5", "-77", "-76.75", "-76.5", "-76.25", "-76")) %>% 
   mutate(transect = "Transect 4", 
          station = (c("53", "56_3", "58", "66", "63", "65")))
+
+T4 <- T4up %>% melt(id.vars = c("lon", "transect", "station"))
 # T5
 
 T5up <- read_delim("Upwelling/UE_MSM_T5.csv", ",")  
 T5up <- T5up %>% filter(lon %in% c("-75.25", "-75.5", "-75.75", "-76", "-76.5")) %>% 
   mutate(transect = "Transect 5",
          station = c("78", "74", "80", "82", "67"))
+T5 <- T5up %>% melt(id.vars = c("lon", "transect", "station"))
 
 # T6
 
@@ -49,105 +52,55 @@ T6up <- read_delim("Upwelling/UE_MSM_T6.csv", ",")
 T6up <- T6up %>% filter(lon %in% c("-74", "-75", "-75.25", "-76", "-74.5" )) %>% 
   mutate(transect = "Transect 6",
          station = c("96", "99", "94_6", "104_1", "94"))
-
+T6 <- T6up %>% melt(id.vars = c("lon", "transect", "station"))
 
 
 Tallup <- rbind(T1up,T2up,T3up,T4up,T5up,T6up) %>% melt(id.vars = c("lon", "transect", "station"))
 
 all_data <- read_delim("AllData_MSM80_17022021.csv", ",") %>% clean_names()
 
-upwell <- left_join(Tallup, all_data, by = c("station","transect"))
+upwell <- left_join(Tallup, all_data, by = c("station","transect")) %>% select (-depth_m)
 peru_coastline <- read_delim("peru coastline.csv", ";")
+#check if the stations number were assigned correctly
 
 ggplot() +coord_fixed()+
  geom_polygon(aes(x=lon, y=lat), colour = "black", fill ="grey", data=peru_coastline)+
-  geom_text(mapping=aes(x=lon_e_w, y=lat_n_s, label=station),check_overlap = T, size=3, data=upwell)
+  geom_text(mapping=aes(x=lon_e_w, y=lat_n_s, label=station), size=3, data=all_data)
+# plot temporatl variability of Ekman transpott
 
 
-# for each transect I select the longtitude that is closest to each station coordinate then I assign the name of the stations. 
-#T1 
-T1up <- T1up %>% select(c("-80.875", "-80.375","-80.125", "-79.625", "-79.375","-79.125")) %>%
-  setNames(c("1", "4", "7", "10", "13", "14"))
-T1up <- rownames_to_column(T1up, "day") # give name to column 0 
+Ts= upwell %>% select(c(transect, station, variable, value)) %>% unique()
 
-t1 <- melt(T1up, id.vars = c("lon", "Transect"))
+  ggplot(Ts)+
+  geom_line(aes(x=variable, y = value, colour = station, group = station),size = 1)+
+  facet_wrap(. ~ transect, strip.position = "top")
+ 
+############################################################################################
+############################# EKMAN RECORDED DURING SAMPLING OF EACH TRANSECT ################
+  #######################################################################################
+t1during <- T1 %>% filter(variable %in%c(27,28,29)) ## the average upwelling 3 days when sampling. 27,28,29 DEC
 
-measure.vars =c("1", "4", "7", "10", "13", "14"))
-#T2
-T2up <- T2up %>% select(c("-80.125", "-79.625","-79.375","-78.625","-78.375") %>% setNames(c("18", "20", "22", "28", "30")))
+t2during <- T2 %>% filter(variable %in% c(32,33,34)) ## the average upwelling of 3 days when sampling. 1,2,3 JAN 2019
 
-T2up <- rownames_to_column(T2up, "day") # give name to column 0 
+t3during <- T3 %>% filter(variable %in% c(37,38,39)) # the average upwelling of 3 dats when sampling. 6,7,8 JAN 2019
 
+t4during <- T4 %>% filter(variable %in% c(42,43,44))# the average upwelling of 3 days when samplng. 11,12,13 JAN 2019
 
-t2 <-melt(T2up, id.vars = "day", measure.vars = c("18", "20", "22", "28", "30"))
+t5during <- T5 %>% filter(variable %in% c(45,46,47,48))# the average upwelling of 4 days when sampling. 14-17 JAN 2019
 
-#T3
-T3up <- T3up %>% select(c("-77.125","-77.375","-77.625", "-77.875","-78.125")%>% setNames(c("38", "40", "43", "45", "46_22")))
-
-T3up <- rownames_to_column(T3up, "day") # give name to column 0 
-t3 <-melt(T3up, id.vars = "day", measure.vars = c("38", "40", "43", "45", "46_22"))
-
-#T4
-T4up <- T4up %>% select(c("-77.625", "-77.125",  "-76.625", "-76.375", "-76.125", "-75.875","-75.375")) %>% setNames(c("53", "56_3", "58", "66", "63", "65"))
-
-T4up <- rownames_to_column(T4up, "day") # give name to column 0 
-t4 <-melt(T4up, id.vars = "day", measure.vars = c("53", "56_3", "58", "66", "63", "65"))
-
-#T5
-T5up <- T5up %>% select(c("-75.125","-75.375","-75.625" ,"-75.875","-76.125" )%>% setNames(c("67", "82", "80", "78", "74")))
-
-T5up <- rownames_to_column(T5up, "day") # give name to column 0 
-t5 <-melt(T5up, id.vars = "day", measure.vars = c("67", "82", "80", "78", "74"))
-
-#T6
-T6up <- T6up %>% select(c("-74.125","-74.375","-75.125", "-75.375", "-76.125" )%>% setNames(c("95", "104", "94_6", "99", "96")))
-
-T6up <- rownames_to_column(T6up, "day") # give name to column 0 
-t6 <-melt(T6up, id.vars = "day", measure.vars = c("95", "104", "94_6", "99", "96"))
-## And here you select the days you want for each transect. So Transect 1 took place from 27-29th Dec, and if you want
-# to have it 2 weeks before just put 13-15, that would mean 13-15th Dec.
-
-T1 <- t1 %>% filter(day %in%c(27,28,29)) ## the average upwelling of 7 days when cruise was taking place. 
-
-T2 <- t2 %>% filter(day %in% c(32,33,34)) ## the average upwelling of 7 days when cruise was taking place.
-
-T3 <- t3 %>% filter(day %in% c(27,28,29))
-
-T4 <- t4 %>% filter(day %in% c(32,33,34))
-
-T5 <- t5 %>% filter(day %in% c(45,46,47,48))
-
-T6 <- t6 %>% filter(day %in% c(53,54,55,56))
-
-setnames(T6, "variable", "station")
-setnames(T5, "variable", "station")
-setnames(T4, "variable", "station")
-setnames(T3, "variable", "station")
-setnames(T2, "variable", "station")
-setnames(T1, "variable", "station")
-setnames(all, "Lat ", "lat")
-setnames(all, "Lon", "lon")
+t6during  <-T6 %>% filter(variable %in% c(53,54,55,56))# the average upwelling of 4 days when sampling 22-25 JAN 2019
 
 ## here I put all the transect in one data frame 
-Tallup <- rbind(T1,T2,T3,T4,T5,T6)
-# here I join my other env data, such as nutrients and physical data together with the upwelling data
-cruiseup <- right_join(Tallup, all, by = "station") # combine both data sets 
 
-upwelling= cruiseup %>% group_by(station_new) %>% filter(depth<60) %>% mutate(meannit = mean(Nitrate),
-                                                                              avUp = mean(value),
-                                                                              meanphos = mean(Phosphate),
-                                                                              meansil= mean(Silicate),
-                                                                              meantemr = mean(t090C),
-                                                                              meanoxy = mean(`sbeox0ML/L`),
-                                                                              meansal= mean(sal00),
-                                                                              meanchl = mean(Chl_a),
-                                                                              sd = sd(value), na.rm = TRUE)
-# T1_cor<- filter(upwelling, station_new %in% c("T1_1", "T1_2", "T1_3", "T1_4", "T1_5", "T1_6"))
-# T2_cor<- filter(upwelling, station_new %in% c("T2_1", "T2_2", "T2_3", "T2_4", "T2_5"))
-# T3_cor <- filter(upwelling, station_new %in% c("T3_1", "T3_2", "T3_3", "T3_4", "T3_5"))
-# T4_cor<- filter(upwelling, station_new %in% c("T4_1", "T4_2", "T4_3", "T4_4", "T4_5", "T4_6", "T4_7"))
-# T5_cor<- filter(upwelling, station_new %in% c("T5_1", "T5_2", "T5_3", "T5_4", "T5_5"))
-# T6_cor <- filter(upwelling, station_new %in% c("T6_1", "T6_2", "T6_3", "T6_4", "T6_5"))
+Tallduring <- rbind(t1during, t2during, t3during, t4during,t5during,t6during )
+
+# here I join my other env data, such as nutrients and physical data together with the upwelling data
+upwell_during <- left_join(Tallduring, all_data, by = c("station","transect")) %>% 
+  select(c(transect, station, variable, value,distance_to_shore_km,ml_depth)) %>% unique()
+
+
+summary= Tallduring %>% group_by(station) %>% mutate(avUpduring = mean(value), 
+                                                        sdduring = sd(value))
 
 legend <-expression ("Ekman Transport"~
                        m^2*s^-1)
@@ -174,13 +127,113 @@ bw_update <- theme_bw() +
         strip.background = element_rect(colour = "white", fill = "white"),
         strip.text = element_text(size = 8))
 
-ggplot(upwelling)+
-  geom_line(aes(x= Distance_from_shore, y=avUp, group = Transect, colour = Transect), size = 2)+
-  geom_point(aes(x= Distance_from_shore, y=avUp, group = Transect, colour = Transect), size = 4)+
-  geom_errorbar(aes(x = Distance_from_shore, ymin = avUp-sd, ymax = avUp+sd,colour = Transect))+
-  scale_color_brewer(palette = "Dark2")+
+ggplot(summary)+
+  geom_line(aes(x= distance_to_shore_km, y=avUp, group = transect, colour = transect), size = 2)+
+  geom_point(aes(x= distance_to_shore_km, y=avUp, group = transect, colour = transect), size = 4)+
+  geom_errorbar(aes(x = distance_to_shore_km, ymin = avUp-sd, ymax = avUp+sd,colour = transect))+
+  #scale_color_brewer(palette = "Dark2")+
   scale_x_reverse(name = 'Distance from shore (km)', limits=c(200,0))+
   scale_y_continuous(name = legend, limits = c(-2.5, 0))+
   bw_update
-ggsave(filename = "MSM80_Ekman_phyto.png",width = 10, height = 6, dpi = 150, units = "in", device='png')
 
+############################################################################################
+############################# EKMAN RECORDED 3 DAYS BEFORE SAMPLING OF EACH TRANSECT ################
+#######################################################################################
+t1before3 <- T1 %>% filter(variable %in%c(24,25,26)) ## the average upwelling of 3 days 3 before sampling. 24,25,26 DEC
+
+t2before3 <- T2 %>% filter(variable %in% c(29,30,31)) ## the average upwelling of 3 days when sampling. 29,30,31 DEC 2019
+
+t3before3 <- T3 %>% filter(variable %in% c(34,35,36)) # the average upwelling of 3 days when sampling. 3,4,5 JAN 2019
+
+t4before3 <- T4 %>% filter(variable %in% c(39,40,41))# the average upwelling of 3 days when samplng. 8,9,10 JAN 2019
+
+t5before3 <- T5 %>% filter(variable %in% c(42,43,44,45))# the average upwelling of 4 days when sampling. 11-14 JAN 2019
+
+t6before3 <-T6 %>% filter(variable %in% c(50,51,52,53))# the average upwelling of 4 days when sampling 19-22 JAN 2019
+
+## here I put all the transect in one data frame 
+
+Tallbefore3 <- rbind(t1before3, t2before3, t3before3, t4before3,t5before3,t6before3 )
+
+# here I join my other env data, such as nutrients and physical data together with the upwelling data
+upwell_before3 <- left_join(Tallbefore3, all_data, by = c("station","transect")) %>% 
+  select(c(transect, station, variable, value,distance_to_shore_km,ml_depth)) %>% unique()
+
+
+summary3before= Tallbefore3 %>% group_by(station) %>% mutate(avUp3before = mean(value), 
+                                                        sd3before = sd(value))
+ggplot(summary)+
+  geom_line(aes(x= distance_to_shore_km, y=avUp, group = transect, colour = transect), size = 2)+
+  geom_point(aes(x= distance_to_shore_km, y=avUp, group = transect, colour = transect), size = 4)+
+  geom_errorbar(aes(x = distance_to_shore_km, ymin = avUp-sd, ymax = avUp+sd,colour = transect))+
+  #scale_color_brewer(palette = "Dark2")+
+  scale_x_reverse(name = 'Distance from shore (km)', limits=c(200,0))+
+  #scale_y_continuous(name = legend, limits = c(-2.5, 0))+
+  bw_update
+
+############################################################################################
+############################# EKMAN RECORDED 7 DAYS BEFORE SAMPLING OF EACH TRANSECT ################
+#######################################################################################
+t1before7 <- T1 %>% filter(variable %in%c(20,21,22)) ## the average upwelling of 3 days 7 before sampling. 24,25,26 DEC
+
+t2before7 <- T2 %>% filter(variable %in% c(25,26,27)) ## the average upwelling of 3 days 7 days before sampling. 29,30,31 DEC 2019
+
+t3before7 <- T3 %>% filter(variable %in% c(30,31,32)) # the average upwelling of 3 days 7 days before sampling. 3,4,5 JAN 2019
+
+t4before7 <- T4 %>% filter(variable %in% c(35,36,37))# the average upwelling of 3 days 7 days before samplng. 8,9,10 JAN 2019
+
+t5before7 <- T5 %>% filter(variable %in% c(38,39,40,41))# the average upwelling of 4 days 7 days before sampling. 11-14 JAN 2019
+
+t6before7 <-T6 %>% filter(variable %in% c(46,47,48,49))# the average upwelling of 4 days 7 days before sampling 19-22 JAN 2019
+
+## here I put all the transect in one data frame 
+
+Tallbefore7 <- rbind(t1before7, t2before7, t3before7, t4before7,t5before7,t6before7)
+
+# here I join my other env data, such as nutrients and physical data together with the upwelling data
+upwell_before7 <- left_join(Tallbefore7, all_data, by = c("station","transect")) %>% 
+  select(c(transect, station, variable, value,distance_to_shore_km,ml_depth)) %>% unique()
+
+
+summary7before = Tallbefore7 %>% group_by(station) %>% mutate(avUp7before = mean(value), 
+                                                         sd7before = sd(value))
+ggplot(summary)+
+  geom_line(aes(x= distance_to_shore_km, y=avUp, group = transect, colour = transect), size = 2)+
+  geom_point(aes(x= distance_to_shore_km, y=avUp, group = transect, colour = transect), size = 4)+
+  geom_errorbar(aes(x = distance_to_shore_km, ymin = avUp-sd, ymax = avUp+sd,colour = transect))+
+  #scale_color_brewer(palette = "Dark2")+
+  scale_x_reverse(name = 'Distance from shore (km)', limits=c(200,0))+
+  #scale_y_continuous(name = legend, limits = c(-2.5, 0))+
+  bw_update
+
+
+#### combine during, before3 and before7 
+
+ekman <- cbind(summary, summary3before, summary7before) %>% 
+  select(c("transect...2", "station...3", "avUpduring", "sd", "avUp3before","sd3before", "avUp7before", "sd7before"))
+setnames(ekman, "transect...2", "transect")
+setnames(ekman, "station...3", "station")
+
+ekmanandall <- left_join(ekman, all_data, by = c("station","transect")) %>%  
+  select(c(transect, station,distance_to_shore_km,avUpduring,avUp3before,avUp7before, sd, sd3before, sd7before)) %>% unique()
+
+ggplot(ekamnandall)+
+  geom_line(aes(x= distance_to_shore_km, y=avUp, group = transect, colour = transect), size = 2)+
+  geom_point(aes(x= distance_to_shore_km, y=avUp, group = transect, colour = transect), size = 4)+
+  geom_errorbar(aes(x = distance_to_shore_km, ymin = avUp-sd, ymax = avUp+sd,colour = transect))+
+  #scale_color_brewer(palette = "Dark2")+
+  scale_x_reverse(name = 'Distance from shore (km)', limits=c(200,0))+
+  #scale_y_continuous(name = legend, limits = c(-2.5, 0))+
+  bw_update
+
+ekmand <- ekmanandall %>% select(-c(sd3before,sd,sd7before))
+
+meltedekman <- ekmand %>% melt(id.vars = c("distance_to_shore_km","station", "transect"))
+
+ggplot(meltedekman)+
+  geom_line(aes(x=distance_to_shore_km, y = value, colour = variable),size = 1)+
+  geom_point(aes(x=distance_to_shore_km, y = value, colour = variable),size = 1)+
+  facet_wrap(. ~ transect, strip.position = "top")+
+  scale_x_reverse(name = 'Distance from shore (km)', limits=c(200,0))+
+  scale_y_continuous(name = legend)
+  
