@@ -19,7 +19,7 @@ T1up <- read_delim("Upwelling/UE_MSM_T1.csv", ",")
 T1up <- T1up %>% filter(lon %in% c("-81", "-80.5", "-80","-79.75", "-79.5","-79.25")) %>% 
   mutate(transect = "Transect 1", 
          station = c("1", "4", "7", "10", "13", "14")) 
-T1 <- T1up %>%melt(id.vars = c("lon", "transect", "station"))
+#T1 <- T1up %>% reshape2::melt(id.vars = c("lon", "transect", "station"))
 
 # T2
 T2up <- read_delim("Upwelling/UE_MSM_T2.csv", ",") 
@@ -27,14 +27,15 @@ T2up <- T2up %>% filter(lon %in% c("-80","-79.75", "-79.5","-79.25", "-79","-78.
   mutate(transect = "Transect 2",
          station = c(18,31,22,33, 16,28,30 ))
 
-T2 <- T2up %>% melt(id.vars = c("lon", "transect", "station"))
+#T2 <- T2up %>% reshape2::melt(id.vars = c("lon", "transect", "station"))
 # T3 
+
 T3up <- read_delim("Upwelling/UE_MSM_T3.csv", ",")
 T3up <- T3up %>% filter (lon %in% c("-78","-77.75", "-77.5", "-77.25")) %>% 
   mutate(transect = "Transect 3",
          station = c("46_22", "41","40", "38"))
   
-T3 <- T3up %>% melt(id.vars = c("lon", "transect", "station"))
+#T3 <- T3up %>% reshape2::melt(id.vars = c("lon", "transect", "station"))
 # T4 
 
 T4up <- read_delim("Upwelling/UE_MSM_T4.csv", ",")
@@ -42,14 +43,14 @@ T4up <- T4up %>% filter(lon %in% c("-77.5","-77.25", "-77", "-76.75", "-76.5", "
   mutate(transect = "Transect 4", 
          station = (c("53", "56_3", "58", "60", "66", "65")))
 
-T4 <- T4up %>% melt(id.vars = c("lon", "transect", "station"))
+#T4 <- T4up %>% reshape2::melt(id.vars = c("lon", "transect", "station"))
 # T5
 
 T5up <- read_delim("Upwelling/UE_MSM_T5.csv", ",")  
 T5up <- T5up %>% filter(lon %in% c("-76.5","-76.25", "-76","-75.75", "-75.5")) %>% 
   mutate(transect = "Transect 5",
          station = c("74","88","89","78","80"))
-T5 <- T5up %>% melt(id.vars = c("lon", "transect", "station"))
+#T5 <- T5up %>% reshape2::melt(id.vars = c("lon", "transect", "station"))
 
 # T6
 
@@ -57,13 +58,15 @@ T6up <- read_delim("Upwelling/UE_MSM_T6.csv", ",")
 T6up <- T6up %>% filter(lon %in% c("-76", "-75.25", "-75","-74.5", "-74.25" )) %>% 
   mutate(transect = "Transect 6",
          station = c("106", "99", "94_6","102_1", "95"))
-T6 <- T6up %>% melt(id.vars = c("lon", "transect", "station"))
+#T6 <- T6up %>% reshape2::melt(id.vars = c("lon", "transect", "station"))
 
+## join them all together
+Tallup <- rbind(T1up,T2up,T3up,T4up,T5up,T6up) %>% reshape2::melt(id.vars = c("lon", "transect", "station"))
 
-Tallup <- rbind(T1up,T2up,T3up,T4up,T5up,T6up) %>% melt(id.vars = c("lon", "transect", "station"))
-
+# load the latest version of the all-data file 
 all_data <- read_delim("AllData_MSM80_02052021.csv", ",") %>% clean_names()
 
+#remove depth to avoid multiple identical rows
 upwell <- left_join(Tallup, all_data, by = c("station","transect")) %>% select (-depth_m)
 peru_coastline <- read_delim("peru coastline.csv", ";")
 #check if the stations number were assigned correctly
@@ -74,10 +77,10 @@ ggplot() +coord_fixed()+
 # plot temporatl variability of Ekman transpott
 
 
-Ts= upwell %>% select(c(transect, station, variable, value)) %>% unique()
+Ts= upwell %>% select(c(distance_to_shore_km, transect, station, variable, value)) %>% unique()
 
   ggplot(Ts)+
-  geom_line(aes(x=variable, y = value, colour = station, group = station),size = 1)+
+  geom_line(aes(x=variable, y = value, colour = distance_to_shore_km, group = station),size = 1)+
   facet_wrap(. ~ transect, strip.position = "top")
  
 ############################################################################################
@@ -104,7 +107,7 @@ Tallduring <- rbind(t1during, t2during, t3during, t4during,t5during,t6during )
 upwell_during <- left_join(Tallduring, all_data, by = c("station","transect")) %>% 
   select(c(transect, station, variable, value,distance_to_shore_km,ml_depth)) %>% unique()
 
-
+# calculate the average and sd of ekman transport for 3 days
 summary= upwell_during %>% dplyr::group_by(station) %>% dplyr::mutate(avUpduring = mean(value), 
                                                         sdduring = sd(value))
 
@@ -123,7 +126,7 @@ bw_update <- theme_bw() +
         axis.title = element_text(size = 13),
         axis.text = element_text(size = 13),
         axis.ticks = element_line(size = 0.5),
-        axis.ticks.length = unit(2, "mm"),
+        axis.ticks.length = unit(1, "mm"),
         legend.direction = "vertical",
         legend.title = element_text(size = 12),
         legend.text = element_text( size = 10),
@@ -137,10 +140,11 @@ ggplot(summary)+
   geom_point(aes(x= distance_to_shore_km, y=avUpduring, colour = transect), size = 4)+
   geom_line(aes(x= distance_to_shore_km, y=avUpduring, group = transect, colour = transect), size = 2)+
   geom_errorbar(aes(x = distance_to_shore_km, ymin = avUpduring-sdduring, ymax = avUpduring+sdduring,colour = transect))+
-  #scale_color_brewer(palette = "Dark2")+
+  scale_color_brewer(name = "Transect", palette = "Dark2")+
   scale_x_reverse(name = 'Distance from shore (km)', limits=c(200,0))+
-  scale_y_continuous(name = legend, limits = c(-2.5, 0))+
+  scale_y_reverse(name = legend, limits = c(0,-2.5))+
   bw_update
+
 
 ############################################################################################
 ############################# EKMAN RECORDED 3 DAYS BEFORE SAMPLING OF EACH TRANSECT ################
@@ -166,15 +170,15 @@ upwell_before3 <- left_join(Tallbefore3, all_data, by = c("station","transect"))
   select(c(transect, station, variable, value,distance_to_shore_km,ml_depth)) %>% unique()
 
 
-summary3before= upwell_before3 %>% group_by(station) %>% mutate(avUp3before = mean(value), 
+summary3before= upwell_before3 %>% dplyr:: group_by(station) %>% dplyr::mutate(avUp3before = mean(value), 
                                                         sd3before = sd(value))
 ggplot(summary3before)+
   geom_line(aes(x= distance_to_shore_km, y=avUp3before, group = transect, colour = transect), size = 2)+
   geom_point(aes(x= distance_to_shore_km, y=avUp3before, group = transect, colour = transect), size = 4)+
   geom_errorbar(aes(x = distance_to_shore_km, ymin = avUp3before-sd3before, ymax = avUp3before+sd3before,colour = transect))+
-  #scale_color_brewer(palette = "Dark2")+
+  scale_color_brewer(name = "Transect",palette = "Dark2")+
   scale_x_reverse(name = 'Distance from shore (km)', limits=c(200,0))+
-  #scale_y_continuous(name = legend, limits = c(-2.5, 0))+
+  scale_y_reverse(name = legend, limits = c(-0, -2.5))+
   bw_update
 
 ############################################################################################
@@ -207,9 +211,9 @@ ggplot(summary7before)+
   geom_line(aes(x= distance_to_shore_km, y=avUp7before, group = transect, colour = transect), size = 2)+
   geom_point(aes(x= distance_to_shore_km, y=avUp7before, group = transect, colour = transect), size = 4)+
   geom_errorbar(aes(x = distance_to_shore_km, ymin = avUp7before-sd7before, ymax = avUp7before+sd7before,colour = transect))+
-  #scale_color_brewer(palette = "Dark2")+
+  scale_color_brewer(name = "Transect", palette = "Dark2")+
   scale_x_reverse(name = 'Distance from shore (km)', limits=c(200,0))+
-  #scale_y_continuous(name = legend, limits = c(-2.5, 0))+
+  scale_y_reverse(name = legend, limits = c(0,-2.5))+
   bw_update
 
 
@@ -255,13 +259,17 @@ ggplot(T1distance)+
   geom_rect(data = deft1, aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax),alpha = 0.3,
             color="grey20")+
   scale_x_discrete(name = "Days",breaks = c(1,5,10,15,20,25,30,35,40,45,50,55,60))+
-  scale_y_continuous(name = legend)+
-  scale_colour_distiller(palette = "Greys",trans = 'reverse', name = "Distance to shore (km)" )+
-  guides(
-    #reverse color order (higher value on top)
-    color = guide_colorbar(reverse = TRUE),
-    #reverse size order (higher diameter on top) 
-    size = guide_legend(reverse = TRUE))
+  scale_y_reverse(name = legend, limits = c(0,-3))+
+  scale_colour_gradientn(colours = c("thistle2", "thistle3", "thistle4"), 
+                         trans = "reverse" ,name = "Distance to shore \n(km)" )+
+  bw_update
+
+  # scale_colour_distiller(palette = "Greys",trans = 'reverse', name = "Distance to shore (km)" )+
+  # guides(
+  #   #reverse color order (higher value on top)
+  #   color = guide_colorbar(reverse = TRUE),
+  #   #reverse size order (higher diameter on top) 
+  #   size = guide_legend(reverse = TRUE))
 
 ### T2
 
@@ -276,13 +284,16 @@ ggplot(T2distance)+
   geom_rect(data = deft2, aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax),alpha = 0.3,
             color="grey20")+
   scale_x_discrete(name = "Days",breaks = c(1,5,10,15,20,25,30,35,40,45,50,55,60))+
-  scale_y_continuous(name = legend)+
-  scale_colour_distiller(palette = "Greys",trans = 'reverse', name = "Distance to shore (km)" )+
-  guides(
-    #reverse color order (higher value on top)
-    color = guide_colorbar(reverse = TRUE),
-    #reverse size order (higher diameter on top) 
-    size = guide_legend(reverse = TRUE))
+  scale_y_reverse(name = legend, limits = c(0,-3))+
+ # scale_colour_distiller(palette = "Greys",trans = 'reverse', name = "Distance to shore (km)" )+
+  scale_colour_gradientn(colours = c("thistle2", "thistle3", "thistle4"), 
+                         trans = "reverse" ,name = "Distance to shore \n(km)" )+
+  bw_update
+  # guides(
+  #   #reverse color order (higher value on top)
+  #   color = guide_colorbar(reverse = TRUE),
+  #   #reverse size order (higher diameter on top) 
+  #   size = guide_legend(reverse = TRUE))
 
 
 ### T3
@@ -298,13 +309,17 @@ ggplot(T3distance)+
   geom_rect(data = deft3, aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax),alpha = 0.3,
             color="grey20")+
   scale_x_discrete(name = "Days",breaks = c(1,5,10,15,20,25,30,35,40,45,50,55,60))+
-  scale_y_continuous(name = legend)+
-  scale_colour_distiller(palette = "Greys",trans = 'reverse', name = "Distance to shore (km)" )+
-  guides(
-    #reverse color order (higher value on top)
-    color = guide_colorbar(reverse = TRUE),
-    #reverse size order (higher diameter on top) 
-    size = guide_legend(reverse = TRUE))
+  scale_y_reverse(name = legend, limits = c(0,-3))+
+  scale_colour_gradientn(colours = c("thistle2", "thistle3", "thistle4"), 
+                         trans = "reverse" ,name = "Distance to shore \n(km)" )+
+  bw_update
+  
+  # scale_colour_distiller(palette = "Greys",trans = 'reverse', name = "Distance to shore (km)" )+
+  # guides(
+  #   #reverse color order (higher value on top)
+  #   color = guide_colorbar(reverse = TRUE),
+  #   #reverse size order (higher diameter on top) 
+  #   size = guide_legend(reverse = TRUE))
 
 ### T4
 
@@ -319,13 +334,16 @@ ggplot(T4distance)+
   geom_rect(data = deft4, aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax),alpha = 0.3,
             color="grey20")+
   scale_x_discrete(name = "Days",breaks = c(1,5,10,15,20,25,30,35,40,45,50,55,60))+
-  scale_y_continuous(name = legend)+
-  scale_colour_distiller(palette = "Greys",trans = 'reverse', name = "Distance to shore (km)" )+
-  guides(
-    #reverse color order (higher value on top)
-    color = guide_colorbar(reverse = TRUE),
-    #reverse size order (higher diameter on top) 
-    size = guide_legend(reverse = TRUE))
+  scale_y_reverse(name = legend, limits = c(0,-3))+
+  scale_colour_gradientn(colours = c("thistle2", "thistle3", "thistle4"), 
+                         trans = "reverse" ,name = "Distance to shore \n(km)" )+
+  bw_update
+  # scale_colour_distiller(palette = "Greys",trans = 'reverse', name = "Distance to shore (km)" )+
+  # guides(
+  #   #reverse color order (higher value on top)
+  #   color = guide_colorbar(reverse = TRUE),
+  #   #reverse size order (higher diameter on top) 
+  #   size = guide_legend(reverse = TRUE))
 
 ### T5
 
@@ -340,13 +358,16 @@ ggplot(T5distance)+
   geom_rect(data = deft4, aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax),alpha = 0.3,
             color="grey20")+
   scale_x_discrete(name = "Days",breaks = c(1,5,10,15,20,25,30,35,40,45,50,55,60))+
-  scale_y_continuous(name = legend)+
-  scale_colour_distiller(palette = "Greys",trans = 'reverse', name = "Distance to shore (km)" )+
-  guides(
-    #reverse color order (higher value on top)
-    color = guide_colorbar(reverse = TRUE),
-    #reverse size order (higher diameter on top) 
-    size = guide_legend(reverse = TRUE))
+  scale_y_reverse(name = legend, limits = c(0,-3))+
+  scale_colour_gradientn(colours = c("thistle2", "thistle3", "thistle4"), 
+                         trans = "reverse" ,name = "Distance to shore \n(km)" )+
+  bw_update
+  # scale_colour_distiller(palette = "Greys",trans = 'reverse', name = "Distance to shore (km)" )+
+  # guides(
+  #   #reverse color order (higher value on top)
+  #   color = guide_colorbar(reverse = TRUE),
+  #   #reverse size order (higher diameter on top) 
+  #   size = guide_legend(reverse = TRUE))
 
 
 ### T6
@@ -362,13 +383,17 @@ ggplot(T6distance)+
   geom_rect(data = deft4, aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax),alpha = 0.3,
             color="grey20")+
   scale_x_discrete(name = "Days",breaks = c(1,5,10,15,20,25,30,35,40,45,50,55,60))+
-  scale_y_continuous(name = legend)+
-  scale_colour_distiller(palette = "Greys",trans = 'reverse', name = "Distance to shore (km)" )+
-  guides(
-    #reverse color order (higher value on top)
-    color = guide_colorbar(reverse = TRUE),
-    #reverse size order (higher diameter on top) 
-    size = guide_legend(reverse = TRUE))
+  scale_y_reverse(name = legend, limits = c(0,-3))+
+  scale_colour_gradientn(colours = c("thistle2", "thistle3", "thistle4"), 
+                         trans = "reverse" ,name = "Distance to shore \n(km)" )+
+  bw_update
+  # scale_colour_distiller(palette = "Greys",trans = 'reverse', name = "Distance to shore (km)" )+
+  # guides(
+  #   #reverse color order (higher value on top)
+  #   color = guide_colorbar(reverse = TRUE),
+  #   #reverse size order (higher diameter on top) 
+  #   size = guide_legend(reverse = TRUE))
+
 
 
   
