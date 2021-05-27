@@ -1,0 +1,412 @@
+######################################################################
+AUTHOR: LEILA KITTU
+#FILE LAST UPDATED: 27.05.2021
+##SCRIPT USED TO PLOT INTERPOLATED TEMPERATURE FROM CTD PROFILES
+#####################################################################
+setwd("~/Documents/GEOMAR/PHD- HUMBOLDT TIPPING/MSM80/Statistics/CTD /CTD - GitHub")
+##Data
+library(data.table)
+library(tidyverse)
+library(lubridate)
+
+##Aesthetics
+library(cmocean) #Theme colours
+library(cowplot) #get_legend
+
+##Interpolation
+library("akima")
+library(metR) # used for adding labels to countours
+library(MBA)
+library(mgcv)
+
+##CTDPROFILES generated from CTD(4) PROJECT - Leila or GITHUB script #CTD_station_profile_data#
+library(readxl)
+CTDPROFILES <- read_excel("~/Documents/GEOMAR/PHD- HUMBOLDT TIPPING/MSM80/Statistics/CTD /ALLSTwithDistance.xlsx", 
+                          na = "NA")
+View(CTDPROFILES)
+
+###4.Subset Transects####
+##T1
+T1 <- filter(CTDPROFILES, profile  %in% c("1","2","3","4", "5", "6"))
+T2 <- filter(CTDPROFILES,  profile %in% c("8", "9", "10","13","14","15","16","17"))
+T3 <- filter(CTDPROFILES,  profile %in% c("20", "21", "22","23","24","25", "27"))
+T4 <- filter(CTDPROFILES,  profile %in% c("30", "31", "32","33","34","35","36"))
+T5 <- filter(CTDPROFILES,  profile %in% c("37", "38", "41","42","43","46","48","49","50","51","52"))
+T6 <- filter(CTDPROFILES,  profile %in% c("53", "54", "55","56","58","59","60"))
+
+
+##Set theme for plots ####
+theme_prof <-  theme_bw() + 
+  theme(panel.grid = element_blank(),
+        plot.background = element_blank(),
+        panel.background = element_rect(colour = NA, fill = "grey"),#Changed fill from NA to "grey50"
+        panel.border = element_rect(colour = "black",
+                                    fill = NA, size = 1),
+        axis.title.x = element_text(size = 17,family="Times",hjust = 0.5),
+        axis.title.y = element_text(size = 17,family="Times",vjust = -0.5),
+        axis.text.x = element_text(size = 16, family="Times",hjust = 0,colour = "black"),##was initially 12 for individual plots
+        axis.text.y = element_text(size = 16, family="Times",hjust = 0,colour = "black"),##was initially 12 for individual plots
+        axis.ticks = element_line(size = 0.5),
+        axis.ticks.length = unit(1.5, "mm"),
+        legend.position = "none",
+        legend.background = element_rect(fill = "transparent"),##background of text
+        legend.key = element_rect(fill = "transparent"), #background of scale
+        legend.text = element_text(size = 16, family="Times",hjust = 0,colour = "black"),
+        legend.title = element_text(size = 16, family="Times",hjust = 0,colour = "black"),
+        plot.title = element_text(size = 17, family="Times",hjust = 0),
+        strip.background = element_rect(colour = "white", fill = "white"),
+        strip.text = element_text(size = 5, margin = margin()))
+
+#1. TEMPERATURE ####
+legendTemp <- "Temperature \n[°C]" ## legend title
+
+##a.Transect 1####
+T1temp<- select(T1, "Km","depth","temp")
+
+##Select the depth of the data (0 - 350 m), CHANGED TO 101 to include 0-100 m
+T1temp<- T1temp[T1temp$depth>0 & T1temp$depth<351, ] 
+
+##Interpolate the data
+interp.T1temp <- interp(T1temp$Km, T1temp$depth, T1temp$temp, nx =300, ny = 300, extrap = FALSE, linear =TRUE)
+interp.df.T1temp <- interp.T1temp %>% interp2xyz() %>% as.data.frame()
+names(interp.df.T1temp) <- c("Km", "depth", "temp")
+
+##create a bounding box
+leftT1temp <- T1temp[T1temp$Km == min(T1temp$Km),] %>% 
+  select(-temp) %>% 
+  ungroup() %>% 
+  mutate(Km = Km-2)
+bottomT1temp <- T1temp %>%
+  group_by(Km) %>% 
+  summarise(depth = min(depth)) %>% 
+  mutate(depth = depth-4)
+rightT1temp <- T1temp[T1temp$Km== max(T1temp$Km),] %>% 
+  select(-temp) %>% 
+  ungroup() %>% 
+  mutate(Km = Km+2)
+topT1temp <- T1temp %>%
+  group_by(Km) %>% 
+  summarise(depth = max(depth)) %>% 
+  mutate(depth = depth+2)
+bounding_boxT1temp <- rbind(data.frame(leftT1temp[order(nrow(leftT1temp):1),]), data.frame(bottomT1temp), 
+                            data.frame(rightT1temp), data.frame(topT1temp[order(nrow(topT1temp):1),]))
+
+# screen out the pixels created outside of bouning box
+bounding_boxlistT1temp <- list(bounding_boxT1temp)
+names(bounding_boxlistT1temp[[1]]) <- c("v","w")
+v <- interp.df.T1temp$Km
+w <- interp.df.T1temp$depth
+T1temp_bound <- interp.df.T1temp[inSide(bounding_boxlistT1temp, v, w),]
+
+#https://ggplot2.tidyverse.org/reference/guide_legend.html
+##Plot
+Temp1<-ggplot(T1temp_bound, aes(x =Km, y = depth, z = temp)) + 
+  geom_raster(aes(fill = temp)) +                 # interpolation
+  geom_contour(aes(z = temp),binwidth = 1, colour = "black", alpha = 0.3) +
+  geom_text_contour(aes(z=temp),colour = "black",check_overlap=TRUE,rotate = TRUE,size = 4)+ # put labels over contour lines
+  scale_fill_gradientn(legendTemp, colours  = cmocean("thermal")(15), na.value = "grey50",limits = c(10,25), guide= guide_colorbar(barwidth = 2, barheight = 20, nbin = 5)) +
+  geom_point(data = T1temp, colour="grey",size = 0.02, alpha=0.3) + 
+  ggtitle("Transect 1 - 8.5°S")+
+  scale_x_reverse(name = expression(paste("Distance [km]"), limits=c(28, 193),breaks = seq(28, 193,25),))+
+  scale_y_reverse(name = expression(paste("Depth [m]")), limits =c(300,0), breaks = seq(0,300,50)) +
+  coord_cartesian(expand=FALSE)+ #Extends the figure to fill the margin
+  theme_prof +
+  theme(plot.margin=margin(l=-0.1,unit="cm"))+
+  theme(axis.title.x = element_blank())
+
+plot(Temp1)
+
+##Extract legend ####
+legend_T <- get_legend(Temp1 + theme(legend.position= "right")) #extract legend
+plot(legend_T)
+
+##b.Transect 2####
+T2temp<- select(T2, "Km","depth","temp")
+
+T2temp<- T2temp[T2temp$depth>0 & T2temp$depth<301, ] 
+
+interp.T2temp <- interp(T2temp$Km, T2temp$depth, T2temp$temp, nx =300, ny = 300, extrap = FALSE, linear =TRUE)
+interp.df.T2temp <- interp.T2temp %>% interp2xyz() %>% as.data.frame()
+names(interp.df.T2temp) <- c("Km", "depth", "temp")
+
+leftT2temp <- T2temp[T2temp$Km == min(T2temp$Km),] %>% 
+  select(-temp) %>% 
+  ungroup() %>% 
+  mutate(Km = Km-2)
+bottomT2temp <- T2temp %>%
+  group_by(Km) %>% 
+  summarise(depth = min(depth)) %>% 
+  mutate(depth = depth-4)
+rightT2temp <- T2temp[T2temp$Km== max(T2temp$Km),] %>% 
+  select(-temp) %>% 
+  ungroup() %>% 
+  mutate(Km = Km+2)
+topT2temp <- T2temp %>%
+  group_by(Km) %>% 
+  summarise(depth = max(depth)) %>% 
+  mutate(depth = depth+2)
+bounding_boxT2temp <- rbind(data.frame(leftT2temp[order(nrow(leftT2temp):1),]), data.frame(bottomT2temp), 
+                            data.frame(rightT2temp), data.frame(topT2temp[order(nrow(topT2temp):1),]))
+
+bounding_boxlistT2temp <- list(bounding_boxT2temp)
+names(bounding_boxlistT2temp[[1]]) <- c("v","w")
+v <- interp.df.T2temp$Km
+w <- interp.df.T2temp$depth
+T2temp_bound <- interp.df.T2temp[inSide(bounding_boxlistT2temp, v, w),]
+
+Temp2 <- ggplot(T2temp_bound, aes(x =Km, y = depth, z = temp)) + 
+  geom_raster(aes(fill = temp)) + 
+  geom_contour(aes(z = temp),binwidth = 1, colour = "black", alpha = 0.3) +
+  geom_text_contour(aes(z=temp),colour = "black",check_overlap=TRUE,rotate = TRUE,size = 4)+ 
+  scale_fill_gradientn(legendTemp,colours = cmocean("thermal")(15), na.value = "grey50",limits = c(10,25)) +
+  geom_point(data = T2temp, colour="grey",size = 0.02, alpha=0.3) +  
+  ggtitle("Transect 2 - 9.6°S")+
+  scale_x_reverse(name = expression(paste("Distance [km]")))+
+  scale_y_reverse(name = expression(paste("Depth [m]")), limits =c(300,0), breaks = seq(0,300,50)) +
+  xlab("Distance from coast (Km)") +
+  coord_cartesian(expand=FALSE)+ 
+  theme_prof +
+  theme(axis.title.y = element_blank())+
+  theme(axis.text.y = element_blank())+
+  theme(axis.title.x = element_blank())
+
+plot(Temp2)
+
+##c.Transect 3####
+T3temp<- select(T3, "Km","depth","temp")
+
+T3temp<- T3temp[T3temp$depth>0 & T3temp$depth<301, ] 
+
+interp.T3temp <- interp(T3temp$Km, T3temp$depth, T3temp$temp, nx =300, ny = 300, extrap = FALSE, linear =TRUE)
+interp.df.T3temp <- interp.T3temp %>% interp2xyz() %>% as.data.frame()
+names(interp.df.T3temp) <- c("Km", "depth", "temp")
+
+leftT3temp <- T3temp[T3temp$Km == min(T3temp$Km),] %>% 
+  select(-temp) %>% 
+  ungroup() %>% 
+  mutate(Km = Km-2)
+bottomT3temp <- T3temp %>%
+  group_by(Km) %>% 
+  summarise(depth = min(depth)) %>% 
+  mutate(depth = depth-4)
+rightT3temp <- T3temp[T3temp$Km== max(T3temp$Km),] %>% 
+  select(-temp) %>% 
+  ungroup() %>% 
+  mutate(Km = Km+2)
+topT3temp <- T3temp %>%
+  group_by(Km) %>% 
+  summarise(depth = max(depth)) %>% 
+  mutate(depth = depth+2)
+bounding_boxT3temp <- rbind(data.frame(leftT3temp[order(nrow(leftT3temp):1),]), data.frame(bottomT3temp), 
+                            data.frame(rightT3temp), data.frame(topT3temp[order(nrow(topT3temp):1),]))
+
+bounding_boxlistT3temp <- list(bounding_boxT3temp)
+names(bounding_boxlistT3temp[[1]]) <- c("v","w")
+v <- interp.df.T3temp$Km
+w <- interp.df.T3temp$depth
+T3temp_bound <- interp.df.T3temp[inSide(bounding_boxlistT3temp, v, w),]
+
+Temp3 <- ggplot(T3temp_bound, aes(x =Km, y = depth, z = temp)) + 
+  geom_raster(aes(fill = temp)) +       
+  geom_contour(aes(z = temp),binwidth = 1, colour = "black", alpha = 0.3) +
+  geom_text_contour(aes(z=temp),colour = "black",check_overlap=TRUE,rotate = TRUE,size = 4)+ 
+  scale_fill_gradientn(legendTemp,colours = cmocean("thermal")(15), na.value = "grey50",limits = c(10,25)) +
+  geom_point(data = T3temp, colour="grey",size = 0.02, alpha=0.3) +  
+  ggtitle("Transect 3 - 12°S")+
+  scale_x_reverse(name = expression(paste("Distance [km]")))+
+  scale_y_reverse(name = expression(paste("Depth [m]")), limits =c(300,0), breaks = seq(0,300,50)) +
+  xlab("Distance from coast (Km)") +
+  coord_cartesian(expand=FALSE)+ #Extends the figure to fill the margin
+  theme_prof +
+  theme(plot.margin=margin(l=-0.1,unit="cm"))+
+  theme(axis.title.x = element_blank())
+
+plot(Temp3)
+
+##d.Transect 4####
+
+T4temp<- select(T4, "Km","depth","temp")
+
+T4temp<-na.omit(T4temp, cols = c("depth", "temp")) 
+
+T4temp<- T4temp[T4temp$depth>0 & T4temp$depth<351, ] 
+
+interp.T4temp <- interp(T4temp$Km, T4temp$depth, T4temp$temp, nx =300, ny = 300, extrap = FALSE, linear =TRUE)
+interp.df.T4temp <- interp.T4temp %>% interp2xyz() %>% as.data.frame()
+names(interp.df.T4temp) <- c("Km", "depth", "temp")
+
+leftT4temp <- T4temp[T4temp$Km == min(T4temp$Km),] %>% 
+  select(-temp) %>% 
+  ungroup() %>% 
+  mutate(Km = Km-2)
+bottomT4temp <- T4temp %>%
+  group_by(Km) %>% 
+  summarise(depth = min(depth)) %>% 
+  mutate(depth = depth-4)
+rightT4temp <- T4temp[T4temp$Km== max(T4temp$Km),] %>% 
+  select(-temp) %>% 
+  ungroup() %>% 
+  mutate(Km = Km+2)
+topT4temp <- T4temp %>%
+  group_by(Km) %>% 
+  summarise(depth = max(depth)) %>% 
+  mutate(depth = depth+2)
+bounding_boxT4temp <- rbind(data.frame(leftT4temp[order(nrow(leftT4temp):1),]), data.frame(bottomT4temp), 
+                            data.frame(rightT4temp), data.frame(topT4temp[order(nrow(topT4temp):1),]))
+
+bounding_boxlistT4temp <- list(bounding_boxT4temp)
+names(bounding_boxlistT4temp[[1]]) <- c("v","w")
+v <- interp.df.T4temp$Km
+w <- interp.df.T4temp$depth
+T4temp_bound <- interp.df.T4temp[inSide(bounding_boxlistT4temp, v, w),]
+
+Temp4 <- ggplot(T4temp_bound, aes(x =Km, y = depth, z = temp)) + 
+  geom_raster(aes(fill = temp)) +              
+  geom_contour(aes(z = temp),binwidth = 1, colour = "black", alpha = 0.3) +
+  geom_text_contour(aes(z=temp),colour = "black",check_overlap=TRUE,rotate = TRUE,size = 4)+ 
+  scale_fill_gradientn(legendTemp,colours = cmocean("thermal")(15), na.value = "grey50",limits = c(10,25)) +
+  geom_point(data = T4temp, colour="grey",size = 0.02, alpha=0.3) + 
+  ggtitle("Transect 4 - 14.5°S")+
+  scale_x_reverse(name = expression(paste("Distance [km]")))+
+  scale_y_reverse(name = expression(paste("Depth [m]")), limits =c(300,0), breaks = seq(0,300,50)) +
+  coord_cartesian(expand=FALSE)+ 
+  theme_prof +
+  theme(axis.title.y = element_blank())+
+  theme(axis.text.y = element_blank())+
+  theme(axis.title.x = element_blank())
+
+plot(Temp4)
+
+##e.Transect 5####
+
+T5temp<- select(T5, "Km","depth","temp")
+
+T5temp<-na.omit(T5temp, cols = c("depth", "temp")) 
+
+T5temp<- T5temp[T5temp$depth>0 & T5temp$depth<351, ] 
+
+interp.T5temp <- interp(T5temp$Km, T5temp$depth, T5temp$temp, nx =300, ny = 300, extrap = FALSE, linear =TRUE, duplicate="mean")
+interp.df.T5temp <- interp.T5temp %>% interp2xyz() %>% as.data.frame()
+names(interp.df.T5temp) <- c("Km", "depth", "temp")
+
+leftT5temp <- T5temp[T5temp$Km == min(T5temp$Km),] %>% 
+  select(-temp) %>% 
+  ungroup() %>% 
+  mutate(Km = Km-2)
+bottomT5temp <- T5temp %>%
+  group_by(Km) %>% 
+  summarise(depth = min(depth)) %>% 
+  mutate(depth = depth-4)
+rightT5temp <- T5temp[T5temp$Km== max(T5temp$Km),] %>% 
+  select(-temp) %>% 
+  ungroup() %>% 
+  mutate(Km = Km+2)
+topT5temp <- T5temp %>%
+  group_by(Km) %>% 
+  summarise(depth = max(depth)) %>% 
+  mutate(depth = depth+2)
+bounding_boxT5temp <- rbind(data.frame(leftT5temp[order(nrow(leftT5temp):1),]), data.frame(bottomT5temp), 
+                            data.frame(rightT5temp), data.frame(topT5temp[order(nrow(topT5temp):1),]))
+
+bounding_boxlistT5temp <- list(bounding_boxT5temp)
+names(bounding_boxlistT5temp[[1]]) <- c("v","w")
+v <- interp.df.T5temp$Km
+w <- interp.df.T5temp$depth
+T5temp_bound <- interp.df.T5temp[inSide(bounding_boxlistT5temp, v, w),]
+
+Temp5 <- ggplot(T5temp_bound, aes(x =Km, y = depth, z = temp)) + 
+  geom_raster(aes(fill = temp)) +     
+  geom_contour(aes(z = temp),binwidth = 1, colour = "black", alpha = 0.3) +
+  geom_text_contour(aes(z=temp),colour = "black",check_overlap=TRUE,rotate = TRUE,size = 4)+ 
+  scale_fill_gradientn(legendTemp,colours = cmocean("thermal")(15), na.value = "grey50",limits = c(10,25)) +
+  geom_point(data = T5temp, colour="grey",size = 0.02, alpha=0.3) + 
+  ggtitle("Transect 5 - 15.3°S")+
+  scale_x_reverse(name = expression(paste("Distance from coast [km]")))+
+  scale_y_reverse(name = expression(paste("Depth [m]")), limits =c(300,0), breaks = seq(0,300,50)) +
+  coord_cartesian(expand=FALSE)+ 
+  theme_prof +
+  theme(plot.margin=margin(l=-0.1,unit="cm"))
+
+plot(Temp5)
+
+##F.Transect 6####
+
+T6temp<- select(T6, "Km","depth","temp")
+
+T6temp<-na.omit(T6temp, cols = c("depth", "temp")) 
+
+T6temp<- T6temp[T6temp$depth>0 & T6temp$depth<351, ] 
+
+interp.T6temp <- interp(T6temp$Km, T6temp$depth, T6temp$temp, nx =300, ny = 300, extrap = FALSE, linear =TRUE)
+interp.df.T6temp <- interp.T6temp %>% interp2xyz() %>% as.data.frame()
+names(interp.df.T6temp) <- c("Km", "depth", "temp")
+
+leftT6temp <- T6temp[T6temp$Km == min(T6temp$Km),] %>% 
+  select(-temp) %>% 
+  ungroup() %>% 
+  mutate(Km = Km-2)
+bottomT6temp <- T6temp %>%
+  group_by(Km) %>% 
+  summarise(depth = min(depth)) %>% 
+  mutate(depth = depth-5)
+rightT6temp <- T6temp[T6temp$Km== max(T6temp$Km),] %>% 
+  select(-temp) %>% 
+  ungroup() %>% 
+  mutate(Km = Km+2)
+topT6temp <- T6temp %>%
+  group_by(Km) %>% 
+  summarise(depth = max(depth)) %>% 
+  mutate(depth = depth+2)
+bounding_boxT6temp <- rbind(data.frame(leftT6temp[order(nrow(leftT6temp):1),]), data.frame(bottomT6temp), 
+                            data.frame(rightT6temp), data.frame(topT6temp[order(nrow(topT6temp):1),]))
+
+bounding_boxlistT6temp <- list(bounding_boxT6temp)
+names(bounding_boxlistT6temp[[1]]) <- c("v","w")
+v <- interp.df.T6temp$Km
+w <- interp.df.T6temp$depth
+T6temp_bound <- interp.df.T6temp[inSide(bounding_boxlistT6temp, v, w),]
+
+Temp6 <- ggplot(T6temp_bound, aes(x =Km, y = depth, z = temp)) + 
+  geom_raster(aes(fill = temp)) +  
+  geom_contour(aes(z = temp),binwidth = 1, colour = "black", alpha = 0.3) +
+  geom_text_contour(aes(z=temp),colour = "black",check_overlap=TRUE,rotate = TRUE,size = 4)+ 
+  scale_fill_gradientn(legendTemp,colours = cmocean("thermal")(15), na.value = "grey50",limits = c(10,25)) +
+  geom_point(data = T6temp, colour="grey",size = 0.02, alpha=0.3) + 
+  ggtitle("Transect 6 - 16°-16.3°S")+
+  scale_x_reverse(name = expression(paste("Distance from coast [km]")))+
+  scale_y_reverse(name = expression(paste("Depth [m]")), limits =c(300,0), breaks = seq(0,300,50)) +
+  coord_cartesian(expand=FALSE)+ 
+  theme_prof +
+  theme(axis.title.y = element_blank())+
+  theme(axis.text.y = element_blank())
+
+plot(Temp6)
+
+##Plot grid ####
+library(gridGraphics)
+##Add all of them in one graph
+Temp_all <- plot_grid(Temp1,Temp2, Temp3,Temp4, Temp5,Temp6,
+                      ncol=2, nrow=3,
+                      align = "hv")
+plot(Temp_all)
+
+##Add legend
+Temp_final <- plot_grid(Temp_all,legend_T, ncol =2 , rel_widths = c(0.5, .07)) # give 10% for the legend bar
+plot(Temp_final)
+
+# save the final graph
+#PNG
+ggsave(Temp_final,filename = "MSM80_Temperature.png",width = 13, height = 10, dpi = 150, units = "in", device='png')
+
+#SVG
+#Replace.svg with pdf to save the same figure in pdf
+library(grDevices)
+library(svglite)
+install.packages(svglite)
+ggsave(filename = "MSM80_Temperature.svg",width = 13, height = 10,
+       plot = print(Temp_final))
+
+
+
+
+
