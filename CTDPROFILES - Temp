@@ -398,7 +398,7 @@ plot(Temp_final)
 
 # save the final graph
 #PNG
-ggsave(Temp_final,filename = "MSM80_Temperature.png",width = 13, height = 10, dpi = 150, units = "in", device='png')
+ggsave(Temp_final,filename = "MSM80_Temperature.png",width = 11, height = 10, dpi = 150, units = "in", device='png')
 
 #SVG
 #Replace.svg with pdf to save the same figure in pdf
