@@ -405,7 +405,7 @@ ggsave(Temp_final,filename = "MSM80_Temperature.png",width = 13, height = 10, dp
 library(grDevices)
 library(svglite)
 install.packages(svglite)
-ggsave(filename = "MSM80_Temperature.svg",width = 13, height = 10,
+ggsave(filename = "MSM80_Temperature.svg",width = 11, height = 10,
        plot = print(Temp_final))
 
 
