@@ -44,18 +44,18 @@ theme_prof <-  theme_bw() +
                                     fill = NA, size = 1),
         axis.title.x = element_text(size = 17,family="Times",hjust = 0.5),
         axis.title.y = element_text(size = 17,family="Times",vjust = -0.5),
-        axis.text.x = element_text(size = 16, family="Times",hjust = 0,colour = "black"),##was initially 12 for individual plots
-        axis.text.y = element_text(size = 16, family="Times",hjust = 0,colour = "black"),##was initially 12 for individual plots
+        axis.text.x = element_text(size = 16, family="Times",hjust = 0,colour = "black"),
+        axis.text.y = element_text(size = 16, family="Times",hjust = 0,colour = "black"),
         axis.ticks = element_line(size = 0.5),
         axis.ticks.length = unit(1.5, "mm"),
-        legend.position = "none",
+        legend.position = "none",  ##In facet plots legend position is right
         legend.background = element_rect(fill = "transparent"),##background of text
         legend.key = element_rect(fill = "transparent"), #background of scale
         legend.text = element_text(size = 16, family="Times",hjust = 0,colour = "black"),
         legend.title = element_text(size = 16, family="Times",hjust = 0,colour = "black"),
         plot.title = element_text(size = 17, family="Times",hjust = 0),
         strip.background = element_rect(colour = "white", fill = "white"),
-        strip.text = element_text(size = 5, margin = margin()))
+        strip.text = element_text(size = 17,family="Times",hjust = 0))
 
 
 #1. TEMPERATURE ####
