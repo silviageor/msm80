@@ -1,6 +1,6 @@
 ######################################################################
 AUTHOR: LEILA KITTU
-#FILE LAST UPDATED: 27.05.2021
+#FILE LAST UPDATED: 16.06.2021
 ##SCRIPT USED TO PLOT INTERPOLATED TEMPERATURE FROM CTD PROFILES
 #####################################################################
 setwd("~/Documents/GEOMAR/PHD- HUMBOLDT TIPPING/MSM80/Statistics/CTD /CTD - GitHub")
@@ -400,13 +400,7 @@ plot(Temp_final)
 #PNG
 ggsave(Temp_final,filename = "MSM80_Temperature.png",width = 11, height = 10, dpi = 150, units = "in", device='png')
 
-#SVG
-#Replace.svg with pdf to save the same figure in pdf
-library(grDevices)
-library(svglite)
-install.packages(svglite)
-ggsave(filename = "MSM80_Temperature.svg",width = 11, height = 10,
-       plot = print(Temp_final))
+
 
 
 
